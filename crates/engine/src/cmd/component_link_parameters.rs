@@ -291,6 +291,9 @@ impl Host {
                 Kind::Length => "a length",
                 Kind::Angle => "an angle",
                 Kind::Unitless => "a number",
+                Kind::Mass => "a mass",
+                Kind::Volume => "a volume",
+                Kind::Area => "an area",
             };
             return Err(format!("expected {wanted}, got {}", v.describe()));
         }
