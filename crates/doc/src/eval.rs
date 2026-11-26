@@ -3974,6 +3974,7 @@ fn local_geometric_naming(f: &Feature) -> bool {
             | FeatureKind::Box { .. }
             | FeatureKind::Cylinder { .. }
             | FeatureKind::Sphere { .. }
+            | FeatureKind::Hull { .. }
             | FeatureKind::Torus { .. }
             | FeatureKind::Coil { .. }
             | FeatureKind::Combine { .. }
@@ -6873,6 +6874,22 @@ pub(crate) const DESIGN_LEN: &str = "\u{1}design_len";
 /// An expression's value. A length that comes out unit-less without being a bare number (a
 /// unit-less parameter used as a length) is in the design's units.
 /// A point given as length expressions.
+/// The solid a Hull feature makes: the convex hull of its points and of the corners of its
+/// bodies, each of them planar (a curved body's hull is not built).
+fn hull_tool(vals: &BTreeMap<String, Value>, st: &ModelState, points: &[crate::PointExpr], bodies: &[crate::BodyName]) -> Result<kernel::Body> {
+    let mut at = Vec::with_capacity(points.len());
+    for p in points {
+        at.push(point(vals, p)?);
+    }
+    for name in bodies {
+        let b = st.bodies.iter().find(|b| name.0 == b.name).ok_or_else(|| DocError::Invalid(format!("the hull's body {} is not there", name.0)))?;
+        let corners = kernel::planar_corners(&b.body)
+            .ok_or_else(|| DocError::Invalid(format!("{} has a curved face: a hull is made of points and of bodies with planar faces", name.0)))?;
+        at.extend(corners);
+    }
+    Ok(kernel::convex_hull(&at)?)
+}
+
 pub(crate) fn point(vals: &BTreeMap<String, Value>, p: &crate::PointExpr) -> Result<Vec3> {
     let [x, y, z] = p;
     let v = Vec3::new(val(vals, x, Kind::Length)?, val(vals, y, Kind::Length)?, val(vals, z, Kind::Length)?);
@@ -7357,6 +7374,7 @@ fn takes_material(doc: &Document, f: &Feature, depth: usize) -> bool {
         | FeatureKind::Box { operation, .. }
         | FeatureKind::Cylinder { operation, .. }
         | FeatureKind::Sphere { operation, .. }
+        | FeatureKind::Hull { operation, .. }
         | FeatureKind::Torus { operation, .. }
         | FeatureKind::Cone { operation, .. }
         | FeatureKind::Loft { operation, .. }
@@ -7471,6 +7489,7 @@ pub fn feature_operation(f: &Feature) -> Option<Operation> {
         | FeatureKind::Box { operation, .. }
         | FeatureKind::Cylinder { operation, .. }
         | FeatureKind::Sphere { operation, .. }
+        | FeatureKind::Hull { operation, .. }
         | FeatureKind::Torus { operation, .. }
         | FeatureKind::Cone { operation, .. }
         | FeatureKind::Loft { operation, .. }
@@ -12151,6 +12170,7 @@ fn feature_tools_with_constructor(
             ])
         }
         FeatureKind::Sphere { center, radius, .. } => Ok(unnamed(vec![kernel::sphere(point(vals, center)?, val(vals, radius, Kind::Length)?)?])),
+        FeatureKind::Hull { points, bodies, .. } => Ok(unnamed(vec![hull_tool(vals, st, points, bodies)?])),
         FeatureKind::Torus { center, major, minor, .. } => {
             Ok(unnamed(vec![kernel::torus(point(vals, center)?, val(vals, major, Kind::Length)?, val(vals, minor, Kind::Length)?)?]))
         }
@@ -12922,6 +12942,7 @@ fn feature_op(f: &Feature) -> (Operation, Vec<String>) {
         FeatureKind::Box { operation, .. }
         | FeatureKind::Cylinder { operation, .. }
         | FeatureKind::Sphere { operation, .. }
+        | FeatureKind::Hull { operation, .. }
         | FeatureKind::Torus { operation, .. }
         | FeatureKind::Cone { operation, .. } => (*operation, Vec::new()),
         FeatureKind::Hole { .. } => (Operation::Cut, Vec::new()),
@@ -17867,6 +17888,10 @@ fn eval_feature_kind(
             let b = kernel::sphere(point(vals, center)?, val(vals, radius, Kind::Length)?)?;
             apply_op(doc, st, f, vec![b], *operation, &[])
         }
+        FeatureKind::Hull { points, bodies, operation } => {
+            let b = hull_tool(vals, st, points, bodies)?;
+            apply_op(doc, st, f, vec![b], *operation, &[])
+        }
         FeatureKind::Torus { center, major, minor, operation } => {
             let b = kernel::torus(point(vals, center)?, val(vals, major, Kind::Length)?, val(vals, minor, Kind::Length)?)?;
             apply_op(doc, st, f, vec![b], *operation, &[])
@@ -18827,6 +18852,7 @@ fn drawn_tools_change_bodies(kind: &FeatureKind) -> bool {
         FeatureKind::Box { operation, .. }
         | FeatureKind::Cylinder { operation, .. }
         | FeatureKind::Sphere { operation, .. }
+        | FeatureKind::Hull { operation, .. }
         | FeatureKind::Torus { operation, .. }
         | FeatureKind::Cone { operation, .. }
         | FeatureKind::Extrude { operation, .. }

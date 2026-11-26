@@ -81,6 +81,29 @@ pub fn convex_polyhedron(hs: &[HalfSpace]) -> Result<Body> {
     crate::smlib_sweeps::body_from_record(&polyhedron_record(hs, &verts, &faces)?, "polyhedron")
 }
 
+/// The convex hull of `points` (solidcore-ops' [`solidcore_ops::hull`]): a closed planar-faced
+/// solid, one face per plane.
+///
+/// # Errors
+/// [`KernelError::Invalid`] for points that hold no solid (fewer than 4, not finite, all on one
+/// plane) or a hull of too many faces; [`KernelError::Failed`] when the solid does not close.
+pub fn convex_hull(points: &[Vec3]) -> Result<Body> {
+    let (verts, faces) = solidcore_ops::hull::hull_faces(points).map_err(|e| KernelError::Invalid(e.to_string()))?;
+    let hs: Vec<HalfSpace> = faces.iter().map(|(h, _)| HalfSpace { n: h.n, d: h.d }).collect();
+    let loops: Vec<(usize, Vec<usize>)> = faces.into_iter().enumerate().map(|(i, (_, cycle))| (i, cycle)).collect();
+    crate::smlib_sweeps::body_from_record(&polyhedron_record(&hs, &verts, &loops)?, "hull")
+}
+
+/// The corners of `b` when every face of it is planar, so its convex hull is the hull of its
+/// corners; `None` when a face is curved.
+pub fn planar_corners(b: &Body) -> Option<Vec<Vec3>> {
+    let record = b.record();
+    if (0..record.faces.len()).any(|i| b.planar_face(i).is_none()) {
+        return None;
+    }
+    Some(record.vertices.iter().map(|v| Vec3::new(v.point[0], v.point[1], v.point[2])).collect())
+}
+
 /// The record of the closed polyhedron with corners `verts` whose faces are `faces` (the
 /// half-space each lies on, and its corners counter-clockwise about that half-space's outward
 /// normal): each face on its plane with the outward normal as the natural one, each edge a line

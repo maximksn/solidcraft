@@ -1,4 +1,4 @@
-//! Rib, Web, Emboss, Dome, Replace Face, Align and Remove.
+//! Rib, Web, Emboss, Dome, Hull, Replace Face, Align and Remove.
 
 use serde_json::Value;
 use solidcore_record::Vec3;
@@ -16,7 +16,7 @@ use super::features::{
 use crate::params::{bad, bool_, expr, expr_problem, req_expr, str_, string_list, vec3};
 use crate::schema::align::AlignParams;
 use crate::schema::features::FeatureResult;
-use crate::schema::features_more::{BoundaryFillParams, CoilParams, DomeParams, EmbossParams, RemoveParams, ReplaceFaceParams, RibParams};
+use crate::schema::features_more::{BoundaryFillParams, CoilParams, DomeParams, EmbossParams, HullParams, RemoveParams, ReplaceFaceParams, RibParams};
 use crate::schema::{TypedContract, output_schema_for};
 use crate::{Result, Session};
 
@@ -28,6 +28,7 @@ const BOUNDARY_FILL_CONTRACT: TypedContract<BoundaryFillParams> = TypedContract:
 const COIL_CONTRACT: TypedContract<CoilParams> = TypedContract::new();
 const EMBOSS_CONTRACT: TypedContract<EmbossParams> = TypedContract::new();
 const DOME_CONTRACT: TypedContract<DomeParams> = TypedContract::new();
+const HULL_CONTRACT: TypedContract<HullParams> = TypedContract::new();
 const REPLACE_FACE_CONTRACT: TypedContract<ReplaceFaceParams> = TypedContract::new();
 
 pub static COMMANDS: &[CommandSpec] = &[
@@ -72,6 +73,14 @@ pub static COMMANDS: &[CommandSpec] = &[
         .from_selection(super::model_selection::body_faces)
         .params(
             "face: [x,y,z] on a planar face, or a face name from model.faces; height: expr (along the face's outward normal); shape?: elliptical|spherical (default elliptical: a quarter ellipse, on a circle a half ellipsoid; spherical: the sphere through the rim and the apex, on a circle); reverse?: bool (cut into the body: not supported yet, refused); body? (the face's body when the name alone does not say)",
+        ),
+    CommandSpec::new("solid.hull", "Hull", crate::checked!("solid.hull", hull)).begins_edit()
+        .at("SOLID", "CREATE")
+        .icon("bounding_solid")
+        .contract(&HULL_CONTRACT)
+        .output(output_schema_for::<FeatureResult>)
+        .params(
+            "points?: [[x,y,z],...] (numbers or length expressions); bodies?: [names] (bodies with planar faces: their corners); operation?: new|join|cut|intersect (default new); targets?: [body names] for join/cut/intersect. The convex hull of all of them: one solid of planar faces",
         ),
     CommandSpec::new("solid.replace_face", "Replace Face", crate::checked!("solid.replace_face", replace_face)).begins_edit()
         .contract(&REPLACE_FACE_CONTRACT)
@@ -257,6 +266,31 @@ fn dome(s: &mut Session, p: &Value) -> Result<Value> {
     };
     let reverse = bool_(p, "reverse").unwrap_or(false);
     add_face_feature(&picked, s, p, FeatureKind::Dome { face: FacePick(face), height, shape, reverse, body: picked.body.clone().map(BodyName) })
+}
+
+/// `solid.hull`: the convex hull of `points` and of the corners of `bodies`, which must have
+/// planar faces.
+fn hull(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "solid.hull";
+    let mut points = Vec::new();
+    match p.get("points") {
+        None | Some(Value::Null) => {}
+        Some(Value::Array(list)) if list.len() <= solidcraft_kernel::MAX_HULL_POINTS => {
+            for v in list {
+                let at = point_param(s, &serde_json::json!({ "point": v }), "point", cmd)?.ok_or_else(|| bad(cmd, "`points` holds [x, y, z] points"))?;
+                points.push(at);
+            }
+        }
+        Some(_) => return Err(bad(cmd, "`points` must be a list of [x, y, z] points")),
+    }
+    let bodies: Vec<BodyName> = string_list(cmd, p, "bodies")?.into_iter().map(BodyName).collect();
+    if let Some(b) = bodies.iter().find(|b| s.model.state().body(&b.0).is_none()) {
+        return Err(bad(cmd, format!("no body `{}`", b.0)));
+    }
+    if points.is_empty() && bodies.is_empty() {
+        return Err(bad(cmd, "give `points`, `bodies` or both"));
+    }
+    add_feature(s, p, FeatureKind::Hull { points, bodies, operation: super::features::operation(p, cmd)? })
 }
 
 fn emboss(s: &mut Session, p: &Value) -> Result<Value> {

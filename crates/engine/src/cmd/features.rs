@@ -1166,7 +1166,12 @@ pub(super) fn add_feature_in(s: &mut Session, p: &Value, kind: FeatureKind, worl
     // Primitives have no `targets` of their own: their `targets` are the bodies taking part (#259).
     let primitive = matches!(
         kind,
-        FeatureKind::Box { .. } | FeatureKind::Cylinder { .. } | FeatureKind::Sphere { .. } | FeatureKind::Torus { .. } | FeatureKind::Cone { .. }
+        FeatureKind::Box { .. }
+            | FeatureKind::Cylinder { .. }
+            | FeatureKind::Sphere { .. }
+            | FeatureKind::Torus { .. }
+            | FeatureKind::Cone { .. }
+            | FeatureKind::Hull { .. }
     );
     let (participants, key) = match string_list(UNKNOWN_COMMAND, p, "participants")? {
         v if v.is_empty() && primitive => (string_list(UNKNOWN_COMMAND, p, "targets")?, "targets"),

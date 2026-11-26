@@ -420,6 +420,28 @@ pub struct DomeParams {
     pub common: FeatureCommon,
 }
 
+/// The convex hull of points and of bodies with planar faces: one planar-faced solid. One undo
+/// step.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct HullParams {
+    /// The points, each [x, y, z] of numbers or length expressions.
+    #[serde(default)]
+    pub points: Option<Vec<PointExpr3>>,
+    /// Bodies with planar faces whose corners the hull holds too.
+    #[serde(default)]
+    pub bodies: Option<StringList>,
+    /// How the hull combines with existing bodies. Default: new.
+    #[serde(default)]
+    pub operation: Option<OperationParam>,
+    /// The bodies a join, cut or intersect works on. Default: every body in the active
+    /// component. Ignored when `participants` lists bodies.
+    #[serde(default)]
+    pub targets: Option<StringList>,
+    #[serde(flatten, deserialize_with = "feature_common")]
+    pub common: FeatureCommon,
+}
+
 #[cfg(test)]
 #[path = "features_more_tests.rs"]
 mod tests;

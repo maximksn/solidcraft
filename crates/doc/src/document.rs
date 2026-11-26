@@ -1572,6 +1572,17 @@ pub enum FeatureKind {
         #[walk(length = ["-X margin", "+X margin", "-Y margin", "+Y margin", "-Z margin", "+Z margin"])]
         margins: Option<[Expr; 6]>,
     },
+    /// The convex hull of points and of bodies: the least convex solid holding them, its faces
+    /// planes. Each body gives its corners and the points of its display mesh.
+    Hull {
+        #[serde(default, skip_serializing_if = "Vec::is_empty", with = "point_exprs")]
+        #[walk(length = "Hull point")]
+        points: Vec<PointExpr>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        bodies: Vec<BodyName>,
+        #[serde(default)]
+        operation: Operation,
+    },
     /// A tube along a chain of sketch curves, or along a chain of a body's edges (solid, or
     /// hollow with a wall thickness).
     Pipe {
@@ -4039,6 +4050,22 @@ mod point_expr {
     }
 }
 
+/// [`point_expr`] for a list of points.
+mod point_exprs {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Wrap(#[serde(with = "super::point_expr")] super::PointExpr);
+
+    pub fn serialize<S: Serializer>(p: &[super::PointExpr], s: S) -> Result<S::Ok, S::Error> {
+        p.iter().map(|p| Wrap(p.clone())).collect::<Vec<_>>().serialize(s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<super::PointExpr>, D::Error> {
+        Ok(Vec::<Wrap>::deserialize(d)?.into_iter().map(|w| w.0).collect())
+    }
+}
+
 /// [`point_expr`] for an optional point.
 mod opt_point_expr {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -4139,6 +4166,7 @@ impl FeatureKind {
             FeatureKind::SurfaceOffset { .. } => "OffsetSurfaceFeature",
             FeatureKind::SurfaceMidsurface { .. } => "MidsurfaceFeature",
             FeatureKind::BoundingSolid { .. } => "BoundingSolidFeature",
+            FeatureKind::Hull { .. } => "HullFeature",
             FeatureKind::Pipe { .. } => "PipeFeature",
             FeatureKind::FrameEndCap { .. } => "EndCapFeature",
             FeatureKind::FrameMemberTurn { .. } => "MemberTurnFeature",
@@ -4236,6 +4264,7 @@ impl FeatureKind {
             FeatureKind::OffsetFace { .. } => "offset_face",
             FeatureKind::DeleteFace { .. } => "delete_face",
             FeatureKind::BoundingSolid { .. } => "bounding_solid",
+            FeatureKind::Hull { .. } => "hull",
             FeatureKind::Pipe { .. } => "pipe",
             FeatureKind::FrameEndCap { .. } => "frame_end_cap",
             FeatureKind::FrameMemberTurn { .. } => "frame_member_turn",
@@ -4337,6 +4366,7 @@ impl FeatureKind {
             "OffsetSurfaceFeature" => "surface_offset",
             "MidsurfaceFeature" => "surface_midsurface",
             "BoundingSolidFeature" => "bounding_solid",
+            "HullFeature" => "hull",
             "PipeFeature" => "pipe",
             "EndCapFeature" => "frame_end_cap",
             "MemberTurnFeature" => "frame_member_turn",
@@ -4436,6 +4466,7 @@ impl FeatureKind {
             FeatureKind::SurfaceOffset { .. } => "OffsetSurface",
             FeatureKind::SurfaceMidsurface { .. } => "Midsurface",
             FeatureKind::BoundingSolid { .. } => "BoundingSolid",
+            FeatureKind::Hull { .. } => "Hull",
             FeatureKind::Pipe { .. } => "Pipe",
             FeatureKind::FrameEndCap { .. } => "EndCap",
             FeatureKind::FrameMemberTurn { .. } => "Rotate",
