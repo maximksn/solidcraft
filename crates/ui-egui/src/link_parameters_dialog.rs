@@ -171,6 +171,9 @@ fn reported_unit(unit: &str) -> &'static str {
         Kind::Length => "mm",
         Kind::Angle => "deg",
         Kind::Unitless => "",
+        Kind::Mass => "kg",
+        Kind::Volume => "mm³",
+        Kind::Area => "mm²",
     }
 }
 

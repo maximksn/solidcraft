@@ -771,7 +771,7 @@ pub(super) fn read_left_out_bodies(
     });
     if links.len() > 1 && budget > 1 && parent_refused == 0 && parent_again == 0 && !solidcraft_doc::progress::cancelled() {
         enum LeftOutJob {
-            Step { link_idx: usize, link: DesignLink, file: PathBuf, flat: bool },
+            Step { link_idx: usize, link: Box<DesignLink>, file: PathBuf, flat: bool },
             Design { link_indices: Vec<usize>, key: ReadKey, file: PathBuf, configuration: Option<SelectedConfiguration> },
         }
         enum LeftOutJobOut {
@@ -807,7 +807,7 @@ pub(super) fn read_left_out_bodies(
                 continue;
             }
             if link.step_names.is_some() {
-                jobs.push(LeftOutJob::Step { link_idx, link: link.clone(), file, flat: step_import_flat(doc, link) });
+                jobs.push(LeftOutJob::Step { link_idx, link: Box::new(link.clone()), file, flat: step_import_flat(doc, link) });
                 continue;
             }
             let target = absolute(&file);
