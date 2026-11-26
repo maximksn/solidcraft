@@ -685,3 +685,4 @@ sketch.spline.control_point_5     sketch: a curve kind no case profiles yet
 sketch.spline3d                   sketch: a curve kind no case profiles yet
 sketch.spun_profile               sketch from the model: curves the kernel computes from bodies
 solid.dome                        the dome is tested in the engine: crates/engine/src/cmd/features_more_tests.rs (the kernel cap is in solidcore-ops dome_tests.rs)
+solid.hull                        the hull is tested in the engine: crates/engine/src/cmd/features_more_tests.rs (the hull itself in solidcore-ops hull.rs)

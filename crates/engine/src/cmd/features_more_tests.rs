@@ -4707,3 +4707,59 @@ fn a_draft_past_where_a_short_walls_sides_meet_ends_the_wall_in_a_point() {
     assert_eq!([b.shell_count(), b.face_count(), b.edge_count(), b.vertex_count()], [1, 6, 12, 8]);
     assert!(b.validity().is_empty(), "{:?}", b.validity());
 }
+
+/// A hull of a cube's corners and points inside it is the cube; its points follow a parameter,
+/// and the design saves and opens with it.
+#[test]
+fn a_hull_of_a_cubes_corners_is_the_cube_and_follows_its_parameter() {
+    let mut s = Session::default();
+    run(&mut s, "parameters.add", json!({"name":"a","expression":"10 mm"}));
+    let mut points = Vec::new();
+    for x in ["0", "a"] {
+        for y in ["0", "a"] {
+            for z in ["0", "a"] {
+                points.push(json!([x, y, z]));
+            }
+        }
+    }
+    points.push(json!([5, 5, 5]));
+    run(&mut s, "solid.hull", json!({"points": points, "body_name": "Hull", "name": "Hull"}));
+    assert!((body_volume(&s, "Hull") - 1000.0).abs() < 1e-6, "{}", body_volume(&s, "Hull"));
+    run(&mut s, "parameters.change", json!({"name":"a","expression":"20 mm"}));
+    assert!((body_volume(&s, "Hull") - 8000.0).abs() < 1e-6, "{}", body_volume(&s, "Hull"));
+    let mut loaded = Session { doc: solidcraft_doc::Document::from_json(&s.doc.to_json()).unwrap().into(), ..Default::default() };
+    loaded.refresh();
+    assert!(loaded.model.results.iter().all(|f| f.error.is_none()), "{:?}", loaded.model.results);
+    assert!((body_volume(&loaded, "Hull") - 8000.0).abs() < 1e-6);
+}
+
+/// A tetrahedron's hull cut from a box takes its volume out; a hull of a planar body's corners
+/// joined to it adds nothing outside the body's own hull.
+#[test]
+fn a_hull_cuts_and_takes_its_volume_out() {
+    let mut s = Session::default();
+    run(&mut s, "solid.box", json!({"length":10,"width":10,"height":10,"body_name":"Stock"}));
+    run(&mut s, "solid.hull", json!({"points": [[0,0,10],[6,0,10],[0,6,10],[0,0,4]], "operation": "cut", "targets": ["Stock"]}));
+    assert!((body_volume(&s, "Stock") - (1000.0 - 36.0)).abs() < 1e-6, "{}", body_volume(&s, "Stock"));
+    run(&mut s, "solid.box", json!({"corner":[20,0,0],"length":2,"width":3,"height":4,"body_name":"Small"}));
+    run(&mut s, "solid.hull", json!({"bodies": ["Small"], "body_name": "Wrap"}));
+    assert!((body_volume(&s, "Wrap") - 24.0).abs() < 1e-6, "{}", body_volume(&s, "Wrap"));
+}
+
+/// Points that hold no solid, a curved body and nothing at all are refused, and change nothing.
+#[test]
+fn a_hull_that_holds_no_solid_is_refused() {
+    let mut s = Session::default();
+    run(&mut s, "solid.sphere", json!({"radius":5,"body_name":"Ball"}));
+    for (params, message) in [
+        (json!({"points": [[0,0,0],[1,0,0],[0,1,0],[1,1,0]]}), "one plane"),
+        (json!({"points": [[0,0,0],[1,0,0],[0,1,0]]}), "at least 4 points"),
+        (json!({"bodies": ["Ball"]}), "curved face"),
+        (json!({}), "give `points`"),
+        (json!({"points": 3}), "`points` must be a list"),
+    ] {
+        let e = s.execute("solid.hull", &params);
+        assert!(e.as_ref().is_err_and(|e| e.to_string().contains(message)), "{params}: {e:?}");
+    }
+    assert_eq!(s.model.state().bodies.len(), 1);
+}
