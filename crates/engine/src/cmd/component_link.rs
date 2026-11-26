@@ -3590,6 +3590,23 @@ fn update_links(s: &mut Session, p: &Value) -> Result<Value> {
     reply(cmd, UpdateLinksResult { updated, unchanged, warnings, failed, param_warnings: Vec::new() })
 }
 
+/// `comp`'s linked design as it was last read (its bodies) and as its file is now, read before
+/// anything in the design changes.
+fn read_linked(s: &Session, comp: u64, link: &DesignLink) -> std::result::Result<(ImportSource, PathBuf, Vec<u8>), String> {
+    let Some(FeatureKind::Import { step: old, records, .. }) = s.doc.feature(link.feature).filter(|f| f.component == comp).map(|f| &f.kind) else {
+        return Err(format!("its linked bodies (feature {}) are gone; break the link or insert the design again", link.feature));
+    };
+    link_refused(s.path.as_deref(), &link.path).map_err(|e| e.to_string())?;
+    let file = resolve(s.path.as_deref(), &link.path);
+    if link.importer.is_some()
+        && let Some(why) = importer_file_refusal(s, &file)
+    {
+        return Err(why);
+    }
+    let bytes = read_link(&file, s.path.as_deref(), link.importer.is_some()).map_err(|e| e.to_string())?;
+    Ok(((old.clone(), records.clone()), file, bytes))
+}
+
 /// What an Import feature's bodies are made from: its STEP text and its records.
 type ImportSource = (std::sync::Arc<str>, Option<std::sync::Arc<solidcraft_doc::kernel::ImportRecords>>);
 
