@@ -55,6 +55,7 @@ pub mod eval;
 pub mod geom;
 pub mod heal;
 pub mod hlr;
+pub mod hull;
 pub mod intersect;
 pub mod mass;
 pub mod mesh_reduce;
