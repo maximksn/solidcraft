@@ -16,7 +16,9 @@ use super::features::{
 use crate::params::{bad, bool_, expr, expr_problem, req_expr, str_, string_list, vec3};
 use crate::schema::align::AlignParams;
 use crate::schema::features::FeatureResult;
-use crate::schema::features_more::{BoundaryFillParams, CoilParams, DomeParams, EmbossParams, HullParams, RemoveParams, ReplaceFaceParams, RibParams};
+use crate::schema::features_more::{
+    BoundaryFillParams, CoilParams, DomeParams, EmbossParams, HullParams, RemoveParams, ReplaceFaceParams, RibParams,
+};
 use crate::schema::{TypedContract, output_schema_for};
 use crate::{Result, Session};
 
@@ -277,7 +279,8 @@ fn hull(s: &mut Session, p: &Value) -> Result<Value> {
         None | Some(Value::Null) => {}
         Some(Value::Array(list)) if list.len() <= solidcraft_kernel::MAX_HULL_POINTS => {
             for v in list {
-                let at = point_param(s, &serde_json::json!({ "point": v }), "point", cmd)?.ok_or_else(|| bad(cmd, "`points` holds [x, y, z] points"))?;
+                let at =
+                    point_param(s, &serde_json::json!({ "point": v }), "point", cmd)?.ok_or_else(|| bad(cmd, "`points` holds [x, y, z] points"))?;
                 points.push(at);
             }
         }

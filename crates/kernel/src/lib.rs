@@ -421,7 +421,6 @@ pub use point_path::sweep_point_path_with;
 pub use polybool::faceted_boolean;
 pub use polyhedron::HalfSpace;
 pub use polyhedron::convex_hull;
-pub use solidcore_ops::hull::MAX_HULL_POINTS;
 pub use polyhedron::convex_polyhedron;
 pub use polyhedron::draft;
 pub use polyhedron::offset_solid;
@@ -514,6 +513,7 @@ pub use sew::sew_touching_traced;
 pub use solidcore_ops::MaterialSides;
 pub use solidcore_ops::dome::DomeRefusal;
 pub use solidcore_ops::dome::DomeShape;
+pub use solidcore_ops::hull::MAX_HULL_POINTS;
 pub use solidcore_ops::measure::ParallelTurnError;
 pub use solidcore_ops::measure::turn_to_parallel;
 /// SolidCraft's kernel interface: the trait each kernel's adapter implements, its operations,
