@@ -2558,8 +2558,16 @@ fn write_bytes(
     sign: bool,
     signing_key: Option<&str>,
 ) -> Result<Value> {
+    // A save keeping the cache waits for the imports' checks of their parts and takes in what
+    // they found: saved before they end, the design would read every imported file again when
+    // it opens. A window saves on a copy of its session, beside the window.
+    if cache && s.model.checking_imports() {
+        s.model.wait_import_checks();
+        s.settle_import_checks();
+    }
     // Before the bytes are made: a check that ends meanwhile leaves this save without the cache.
-    let skip_reason = cache.then(|| s.model.cache_skip_reason(&s.design_saved(Some(path)))).flatten();
+    // A design saved without its linked bodies keeps the model of the design with them.
+    let skip_reason = cache.then(|| s.model.cache_skip_reason(&s.design_at(Some(path)))).flatten();
     let chain = s.provenance_chain.clone().unwrap_or_default();
     let mut signature = None;
     let mut notes: Vec<String> = Vec::new();
@@ -2609,8 +2617,6 @@ fn write_bytes(
             _ => return Err(bad("file.save", "format must be container or json")),
         }
     };
-    // The linked bodies were deliberately left out with their cache.
-    let cache = cache && (s.linked_bodies || s.doc.links.is_empty());
     if !s.linked_bodies {
         notes.extend(super::component_link::kept_linked_bodies(s));
     }
@@ -3143,10 +3149,13 @@ impl Session {
         saving: bool,
     ) -> solidcraft_io::Result<Vec<u8>> {
         let design = if saving { self.design_saved(path) } else { self.design_at(path) };
-        // The saved model and the thumbnail hold the linked bodies too: a file saved without
-        // them has neither, and evaluates when it opens.
-        let cache = cache && !(design.linked_bodies_left_out && !design.links.is_empty());
-        let geometry = cache.then(|| saved_geometry(self, &design)).flatten();
+        // The saved model holds the linked bodies too, also in a file saved without their source
+        // text: an opening that gives the links their unchanged text back adopts it (each import
+        // is keyed by its text's digest) instead of reading every linked file's bodies again. It
+        // is the model of the design with that text, as the opening gives it back.
+        let geometry = cache
+            .then(|| if design.linked_bodies_left_out { saved_geometry(self, &self.design_at(path)) } else { saved_geometry(self, &design) })
+            .flatten();
         let preview = preview.then(|| saved_preview(self)).flatten();
         let thumbnail = cache.then(|| crate::thumbnail::png(self)).flatten();
         match provenance {
