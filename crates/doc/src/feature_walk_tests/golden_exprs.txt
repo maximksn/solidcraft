@@ -310,6 +310,12 @@ bounding_solid
   inputs:
     Margin = bounding.margin (Length)
   expressions: bounding.margin
+hull
+  inputs:
+    Hull point = hull.x (Length)
+    Hull point = hull.y (Length)
+    Hull point = hull.z (Length)
+  expressions: hull.x, hull.y, hull.z
 pipe
   inputs:
     Diameter = pipe.diameter (Length)
