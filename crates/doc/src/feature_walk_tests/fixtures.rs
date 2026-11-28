@@ -165,6 +165,7 @@ pub(super) fn fixtures() -> Vec<(&'static str, Value)> {
         ("offset_face", json!({"type": "offset_face", "faces": [o], "distance": "offset_face.distance"})),
         ("delete_face", json!({"type": "delete_face", "faces": [o]})),
         ("bounding_solid", json!({"type": "bounding_solid", "bodies": ["B"], "margin": "bounding.margin"})),
+        ("hull", json!({"type": "hull", "points": [["hull.x", "hull.y", "hull.z"]], "bodies": ["B"]})),
         ("pipe", json!({"type": "pipe", "path_sketch": 1, "path": ["l1"], "diameter": "pipe.diameter", "wall": "pipe.wall"})),
         (
             "frame_member",
