@@ -1,0 +1,30 @@
+{
+  "en": {
+    "cmd.solid_hull": "Hull",
+    "help.solid.hull": "Creates the convex hull of the picked points and bodies: the smallest convex solid that holds them all. Use it for a fairing, a guard or an envelope around parts."
+  },
+  "ar": {
+    "cmd.solid_hull": "الغلاف المحدب",
+    "help.solid.hull": "ينشئ الغلاف المحدب للنقاط والأجسام المختارة: أصغر جسم محدب يحتويها كلها. استخدمه لغطاء انسيابي أو واقٍ أو غلاف حول الأجزاء."
+  },
+  "de": {
+    "cmd.solid_hull": "Konvexe Hülle",
+    "help.solid.hull": "Erzeugt die konvexe Hülle der gewählten Punkte und Körper: den kleinsten konvexen Körper, der sie alle enthält. Für eine Verkleidung, einen Schutz oder eine Hüllform um Teile."
+  },
+  "he": {
+    "cmd.solid_hull": "מעטפת קמורה",
+    "help.solid.hull": "יוצר את המעטפת הקמורה של הנקודות והגופים שנבחרו: הגוף הקמור הקטן ביותר שמכיל את כולם. שימושי לכיסוי, למגן או למעטפת סביב חלקים."
+  },
+  "ja": {
+    "cmd.solid_hull": "凸包",
+    "help.solid.hull": "選択した点とボディの凸包、つまりそれらをすべて含む最小の凸ソリッドを作成します。カバー、ガード、部品を囲む外形に使います。"
+  },
+  "vi": {
+    "cmd.solid_hull": "Bao lồi",
+    "help.solid.hull": "Tạo bao lồi của các điểm và khối đã chọn: khối lồi nhỏ nhất chứa tất cả chúng. Dùng cho vỏ che, tấm chắn hoặc khối bao quanh các chi tiết."
+  },
+  "zh": {
+    "cmd.solid_hull": "凸包",
+    "help.solid.hull": "创建所选点和实体的凸包：包含它们全部的最小凸实体。用于整流罩、护罩或零件的外包络。"
+  }
+}
