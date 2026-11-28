@@ -6798,7 +6798,8 @@ mod tests {
         let reply = run(&mut opened, "doc.open", json!({"path": asm}));
         assert_eq!(reply["errors"], 0, "{reply}");
         assert_eq!(EVALUATED.with(std::cell::Cell::get), 2, "5 design links share 2 unique files");
-        assert_eq!(STEP_READS.with(std::cell::Cell::get), 1, "3 STEP links share 1 unique file");
+        // The unchanged STEP file gives back only its text, and the saved model its bodies.
+        assert_eq!(STEP_READS.with(std::cell::Cell::get), 0, "3 STEP links of 1 unchanged file read no bodies");
         assert_eq!(opened.model.state().bodies.len(), 8);
         // 3 * (10*20*30) + 2 * (10*20*15) + 3 * (10*10*10) = 18_000 + 6_000 + 3_000 = 27_000.
         assert!((volume(&mut opened) - 27_000.0).abs() < 1e-5, "{}", volume(&mut opened));
