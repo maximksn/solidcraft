@@ -5943,6 +5943,13 @@ impl Model {
         self.results.iter().any(|r| r.import_report.as_ref().is_some_and(|i| i.checking()))
     }
 
+    /// Wait until every import's SMLib check of its parts has ended ([`Self::checking_imports`]).
+    pub fn wait_import_checks(&self) {
+        for report in self.results.iter().filter_map(|r| r.import_report.as_ref()) {
+            let _ = report.checks.wait();
+        }
+    }
+
     /// Whether any import check is still running, finished with unsettled heals or issues, or
     /// settled heals that still owe an evaluation ([`Self::settle_import_checks`]).
     pub fn has_pending_import_checks(&self) -> bool {

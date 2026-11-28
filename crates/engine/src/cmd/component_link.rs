@@ -797,6 +797,13 @@ pub(super) fn read_left_out_bodies(
         return Vec::new();
     }
     let _opening = Opening::enter(from, which);
+    // A linked STEP file with the bytes the design was saved with gives back only its text: the
+    // feature kept its tree, skipped placements and body names, and the saved model or the
+    // evaluation reads the bodies, so the file is not imported here as well.
+    let links: Vec<(u64, DesignLink)> = links.into_iter().filter(|(comp, link)| !restore_unchanged_step(doc, from, *comp, link)).collect();
+    if links.is_empty() {
+        return Vec::new();
+    }
     let mut prefetched_steps: std::collections::HashMap<usize, StepReadOnce> = std::collections::HashMap::new();
     let mut prefetched_designs: std::collections::HashMap<usize, ReadOnce> = std::collections::HashMap::new();
     let (budget, parent_opening, parent_which, parent_refused, parent_again, shared_read) = READING.with(|reading| {
@@ -1224,6 +1231,36 @@ fn read_step_once(file: &Path, from: Option<&str>, step_names: &str, flat: bool,
     let ((_, feature, ..), _) = source_bodies(file, &bytes, &probe, flat, validation).map_err(|e| e.to_string())?;
     let solidcraft_io::StepFeature { name, kind, body_names, invisible, warnings, import } = feature;
     Ok((name, kind, body_names, invisible, warnings, import, DesignLink::file_digest(&bytes)))
+}
+
+/// Give the Import feature of `link` (of the component `comp`) the STEP text of its linked file
+/// when the file is plain STEP, still has the bytes the link recorded, and the feature kept its
+/// tree and body names. The read is remembered as [`source_bodies`] remembers it, so Update Links
+/// knows the file gives these bodies. Whether the text was given back.
+fn restore_unchanged_step(doc: &mut Document, from: Option<&str>, comp: u64, link: &DesignLink) -> bool {
+    let (Some(_), Some(kept)) = (&link.step_names, &link.file_sha256) else { return false };
+    let file = resolve(from, &link.path);
+    if !may_read(&file) || link_refused(from, &link.path).is_err() {
+        return false;
+    }
+    let complete = doc.feature(link.feature).is_some_and(|f| {
+        f.component == comp
+            && !f.body_names.is_empty()
+            && matches!(&f.kind, FeatureKind::Import { step, components, records: None, .. } if step.is_empty() && !components.is_empty())
+    });
+    if !complete {
+        return false;
+    }
+    let Ok(bytes) = read_link(&file, from, false) else { return false };
+    if DesignLink::file_digest(&bytes) != *kept {
+        return false;
+    }
+    let Some(text) = solidcraft_io::step_feature_text(&bytes, &file.to_string_lossy()) else { return false };
+    let Some(f) = doc.feature_mut(link.feature) else { return false };
+    let FeatureKind::Import { step, .. } = &mut f.kind else { return false };
+    *step = text.into();
+    remember_read_parts(&file, None, digest(bytes.as_slice()), &f.kind, &[], &[], &[], &Default::default(), &[]);
+    true
 }
 
 /// [`left_out_bodies`] for a linked STEP file at `file`: read again as Update Links reads it
@@ -6761,7 +6798,8 @@ mod tests {
         let reply = run(&mut opened, "doc.open", json!({"path": asm}));
         assert_eq!(reply["errors"], 0, "{reply}");
         assert_eq!(EVALUATED.with(std::cell::Cell::get), 2, "5 design links share 2 unique files");
-        assert_eq!(STEP_READS.with(std::cell::Cell::get), 1, "3 STEP links share 1 unique file");
+        // The unchanged STEP file gives back only its text, and the saved model its bodies.
+        assert_eq!(STEP_READS.with(std::cell::Cell::get), 0, "3 STEP links of 1 unchanged file read no bodies");
         assert_eq!(opened.model.state().bodies.len(), 8);
         // 3 * (10*20*30) + 2 * (10*20*15) + 3 * (10*10*10) = 18_000 + 6_000 + 3_000 = 27_000.
         assert!((volume(&mut opened) - 27_000.0).abs() < 1e-5, "{}", volume(&mut opened));

@@ -364,6 +364,13 @@ pub fn is_step_path(path: &str) -> bool {
         || is_native_cad_path(path)
 }
 
+/// The STEP text the Import feature of a STEP file's `bytes` keeps, as
+/// [`step_import_feature_named`] keeps it, without reading the file's bodies. `None` for a file
+/// that feature restates as STEP (IGES, a format read through cadmpeg).
+pub fn step_feature_text(bytes: &[u8], file: &str) -> Option<String> {
+    (is_step_path(file) && !is_iges_path(file) && !is_native_cad_path(file)).then(|| step_text(bytes))
+}
+
 /// Is this an IGES file name (`.igs` / `.iges`, any case)?
 pub fn is_iges_path(path: &str) -> bool {
     std::path::Path::new(path).extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("igs") || e.eq_ignore_ascii_case("iges"))

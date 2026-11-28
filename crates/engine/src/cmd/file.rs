@@ -145,7 +145,7 @@ pub static COMMANDS: &[CommandSpec] = &[
             "format?: container|json (default: json for .json, otherwise container); ",
             "compression?: fast|compact (default: fast); ",
             "cache?: bool (the evaluated model, so the design opens without rebuilding; default: true; left out, without waiting, while an imported file's check of its parts still runs); ",
-            "linked_bodies?: bool (the bodies of linked designs and linked STEP files, with a linked design's mesh bodies; false: the file keeps each link without its bodies, opening the design reads them from the linked files again, and a container has no saved model; a link whose file cannot be read now keeps its bodies and is named in warnings; default: as the design was last saved or opened, true for a new design); ",
+            "linked_bodies?: bool (the bodies of linked designs and linked STEP files, with a linked design's mesh bodies; false: the file keeps each link without its bodies, opening the design reads them from the linked files again (a linked STEP file unchanged since gives back only its text, and the saved model its bodies); a link whose file cannot be read now keeps its bodies and is named in warnings; default: as the design was last saved or opened, true for a new design); ",
             "preview?: bool (saved display meshes, default: false); ",
             "overwrite?: bool (replace the design's file even though another program or computer changed it since it was opened or saved; without it that save is refused); ",
             "sign?: bool (the app's own Save only: sign the save with GnuPG, appending a provenance record; container only; a script or agent is refused); ",
@@ -162,7 +162,7 @@ pub static COMMANDS: &[CommandSpec] = &[
             "format?: container|json (default: json for .json, otherwise container); ",
             "compression?: fast|compact (default: fast); ",
             "cache?: bool (the evaluated model, so the design opens without rebuilding; default: true; left out, without waiting, while an imported file's check of its parts still runs); ",
-            "linked_bodies?: bool (the bodies of linked designs and linked STEP files, with a linked design's mesh bodies; false: the file keeps each link without its bodies, opening the design reads them from the linked files again, and a container has no saved model; a link whose file cannot be read now keeps its bodies and is named in warnings; default: as the design was last saved or opened, true for a new design); ",
+            "linked_bodies?: bool (the bodies of linked designs and linked STEP files, with a linked design's mesh bodies; false: the file keeps each link without its bodies, opening the design reads them from the linked files again (a linked STEP file unchanged since gives back only its text, and the saved model its bodies); a link whose file cannot be read now keeps its bodies and is named in warnings; default: as the design was last saved or opened, true for a new design); ",
             "preview?: bool (saved display meshes, default: false); ",
             "overwrite?: bool (as file.save, when `path` is the design's own file); ",
             "sign?: bool and signing_key? (as file.save, and likewise only from the app's own Save)",
@@ -2558,8 +2558,16 @@ fn write_bytes(
     sign: bool,
     signing_key: Option<&str>,
 ) -> Result<Value> {
+    // A save keeping the cache waits for the imports' checks of their parts and takes in what
+    // they found: saved before they end, the design would read every imported file again when
+    // it opens. A window saves on a copy of its session, beside the window.
+    if cache && s.model.checking_imports() {
+        s.model.wait_import_checks();
+        s.settle_import_checks();
+    }
     // Before the bytes are made: a check that ends meanwhile leaves this save without the cache.
-    let skip_reason = cache.then(|| s.model.cache_skip_reason(&s.design_saved(Some(path)))).flatten();
+    // A design saved without its linked bodies keeps the model of the design with them.
+    let skip_reason = cache.then(|| s.model.cache_skip_reason(&s.design_at(Some(path)))).flatten();
     let chain = s.provenance_chain.clone().unwrap_or_default();
     let mut signature = None;
     let mut notes: Vec<String> = Vec::new();
@@ -2609,8 +2617,6 @@ fn write_bytes(
             _ => return Err(bad("file.save", "format must be container or json")),
         }
     };
-    // The linked bodies were deliberately left out with their cache.
-    let cache = cache && (s.linked_bodies || s.doc.links.is_empty());
     if !s.linked_bodies {
         notes.extend(super::component_link::kept_linked_bodies(s));
     }
@@ -3143,10 +3149,13 @@ impl Session {
         saving: bool,
     ) -> solidcraft_io::Result<Vec<u8>> {
         let design = if saving { self.design_saved(path) } else { self.design_at(path) };
-        // The saved model and the thumbnail hold the linked bodies too: a file saved without
-        // them has neither, and evaluates when it opens.
-        let cache = cache && !(design.linked_bodies_left_out && !design.links.is_empty());
-        let geometry = cache.then(|| saved_geometry(self, &design)).flatten();
+        // The saved model holds the linked bodies too, also in a file saved without their source
+        // text: an opening that gives the links their unchanged text back adopts it (each import
+        // is keyed by its text's digest) instead of reading every linked file's bodies again. It
+        // is the model of the design with that text, as the opening gives it back.
+        let geometry = cache
+            .then(|| if design.linked_bodies_left_out { saved_geometry(self, &self.design_at(path)) } else { saved_geometry(self, &design) })
+            .flatten();
         let preview = preview.then(|| saved_preview(self)).flatten();
         let thumbnail = cache.then(|| crate::thumbnail::png(self)).flatten();
         match provenance {
